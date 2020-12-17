@@ -1,6 +1,5 @@
 """
-https://github.com/znxlwm/pytorch-MNIST-CelebA-GAN-DCGAN
-
+https://github.com/AKASHKADEL/dcgan-celeba
 Based on the code above
 """
 
@@ -9,59 +8,128 @@ import torch.nn as nn
 import torch.nn.functional as F
 
 class Generator(nn.Module):
-    def __init__(self, d = 128):
+    def __init__(self, nc, nz, ngf):
         super(Generator, self).__init__()
-        self.deconv1 = nn.ConvTranspose2d(100, d*8, 4, 1 ,0)
-        self.bn1 = nn.BatchNorm2d(d*8)
-        self.deconv2 = nn.ConvTranspose2d(d*8, d*4, 4, 2, 1)
-        self.bn2 = nn.BatchNorm2d(d*4)
-        self.deconv3 = nn.ConvTranspose2d(d*4, d*2, 4, 2, 1)
-        self.bn3 = nn.BatchNorm2d(d*2)
-        self.deconv4 = nn.ConvTranspose2d(d*2, d, 4, 2, 1)
-        self.bn4 = nn.BatchNorm2d(d)
-        self.deconv5 = nn.ConvTranspose2d(d, 3, 4, 2, 1)
 
-    def weight_init(self, mean, std):
-        for m in self._modules:
-            normal_init(self._modules[m], mean, std)
-    
+        # Input is the latent vector Z.
+        self.tconv1 = nn.ConvTranspose2d(nz, ngf*8,
+            kernel_size=4, stride=1, padding=0, bias=False)
+        self.bn1 = nn.BatchNorm2d(ngf*8)
 
-    def forward(self, input):
-        x = F.relu(self.bn1(self.deconv1(input)))
-        x = F.relu(self.bn2(self.deconv2(x)))
-        x = F.relu(self.bn3(self.deconv3(x)))
-        x = F.relu(self.bn4(self.deconv4(x)))
-        x = F.tanh(self.deconv5(x))
+        # Input Dimension: (ngf*8) x 4 x 4
+        self.tconv2 = nn.ConvTranspose2d(ngf*8, ngf*4,
+            4, 2, 1, bias=False)
+        self.bn2 = nn.BatchNorm2d(ngf*4)
+
+        # Input Dimension: (ngf*4) x 8 x 8
+        self.tconv3 = nn.ConvTranspose2d(ngf*4, ngf*2,
+            4, 2, 1, bias=False)
+        self.bn3 = nn.BatchNorm2d(ngf*2)
+
+        # Input Dimension: (ngf*2) x 16 x 16
+        self.tconv4 = nn.ConvTranspose2d(ngf*2, ngf,
+            4, 2, 1, bias=False)
+        self.bn4 = nn.BatchNorm2d(ngf)
+
+        # Input Dimension: (ngf) * 32 * 32
+        self.tconv5 = nn.ConvTranspose2d(ngf, nc,
+            4, 2, 1, bias=False)
+        #Output Dimension: (nc) x 64 x 64
+
+    def forward(self, x):
+        x = F.relu(self.bn1(self.tconv1(x)))
+        x = F.relu(self.bn2(self.tconv2(x)))
+        x = F.relu(self.bn3(self.tconv3(x)))
+        x = F.relu(self.bn4(self.tconv4(x)))
+
+        x = torch.tanh(self.tconv5(x))
 
         return x
-
-
+    
 class Discriminator(nn.Module):
-    def __init__(self, d = 128):
+    def __init__(self, nc, ndf):
         super(Discriminator, self).__init__()
-        self.conv1 = nn.Conv2d(3, d, 4, 2, 1)
-        self.conv2 = nn.Conv2d(d, 2*d, 4, 2, 1)
-        self.bn2 = nn.BatchNorm2d(2*d)
-        self.conv3 = nn.Conv2d(2*d, 4*d, 4, 2, 1)
-        self.bn3 = nn.BatchNorm2d(4*d)
-        self.conv4 = nn.Conv2d(4*d, 8*d, 4, 2, 1)
-        self.bn4 = nn.BatchNorm2d(8*d)
-        self.conv5 = nn.Conv2d(8*d, 1, 4, 1, 0)
+        self.cv1 = nn.Conv2d(nc, ndf, kernel_size=4, stride=2, padding=1, bias=False) # (3, 64, 64) -> (64, 32, 32)
+        self.cv2 = nn.Conv2d(ndf, ndf*2, 4, 2, 1 ) # (64, 32, 32) -> (128, 16, 16)
+        self.bn2 = nn.BatchNorm2d(ndf*2) # spatial batch norm is applied on num of channels
+        self.cv3 = nn.Conv2d(ndf*2, ndf*4, 4, 2, 1) # (128, 16, 16) -> (256, 8, 8)
+        self.bn3 = nn.BatchNorm2d(ndf*4)
+        self.cv4 = nn.Conv2d(ndf*4, ndf*8, 4, 2, 1, bias=False) # (256, 8, 8) -> (512, 4, 4)
+        self.bn4 = nn.BatchNorm2d(ndf* 8)
+        self.cv5 = nn.Conv2d(ndf*8, 1, 4, 1, 0, bias=False) # (512, 4, 4) -> (1, 1, 1)
 
-    def weight_init(self, mean, std):
-        for m in self._modules:
-            normal_init(self._modules[m], mean, std)
-    
-    def forward(self, input):
-        x = F.leaky_relu(self.conv1(input), 0.2)
-        x = F.leaky_relu(self.bn2(self.conv2(x)), 0.2)
-        x = F.leaky_relu(self.bn3(self.conv3(x)), 0.2)
-        x = F.leaky_relu(self.bn4(self.conv4(x)), 0.2)
-        x = F.sigmoid(self.conv5(x))
+    def forward(self, x):
+        x = F.leaky_relu(self.cv1(x))
+        x = F.leaky_relu(self.bn2(self.cv2(x)), 0.2, True)
+        x = F.leaky_relu(self.bn3(self.cv3(x)), 0.2, True)
+        x = F.leaky_relu(self.bn4(self.cv4(x)), 0.2, True)
+        x = torch.sigmoid(self.cv5(x))
+        return x.view(-1, 1).squeeze(1)
+
+
+class GenWithConv(nn.Module):
+    def __init__(self, nc, nz, ngf):
+        super(GenWithConv, self).__init__()
+
+        self.tconv1 = nn.ConvTranspose2d(nz, ngf*8,
+            kernel_size=4, stride=1, padding=0, bias=False)
+        self.bn1 = nn.BatchNorm2d(ngf*8)
+
+        self.tconv2 = nn.ConvTranspose2d(ngf*8, ngf*4,
+            4, 2, 1, bias=False)
+        self.bn2 = nn.BatchNorm2d(ngf*4)
+
+        self.tconv3 = nn.ConvTranspose2d(ngf*4, ngf*2,
+            4, 2, 1, bias=False)
+        self.bn3 = nn.BatchNorm2d(ngf*2)
+
+        self.tconv4 = nn.ConvTranspose2d(ngf*2, ngf,
+            4, 2, 1, bias=False)
+        self.bn4 = nn.BatchNorm2d(ngf)
+
+        self.tconv5 = nn.ConvTranspose2d(ngf, nc,
+            4, 2, 1, bias=False)
+        self.bn5 = nn.BatchNorm2d(nc)
+
+        self.conv1 = nn.Conv2d(nc, nc*4, 3, 1, 1, bias=False)
+        self.bn6 = nn.BatchNorm2d(nc*4)
+
+        self.conv2 = nn.Conv2d(nc*4, nc*8, 3, 1, 1, bias=False)
+        self.bn7 = nn.BatchNorm2d(nc*8)
+        
+        self.conv3 = nn.Conv2d(nc*8, nc*8, 3, 1, 1, bias=False)
+        self.bn8 = nn.BatchNorm2d(nc*8)
+
+        self.conv4 = nn.Conv2d(nc*8, nc*4, 3, 1, 1, bias=False)
+        self.bn9 = nn.BatchNorm2d(nc*4)
+
+        self.conv5 = nn.Conv2d(nc*4, nc, 3, 1, 1, bias=False)
+
+
+
+    def forward(self, x):
+        x = F.relu(self.bn1(self.tconv1(x)))
+        x = F.relu(self.bn2(self.tconv2(x)))
+        x = F.relu(self.bn3(self.tconv3(x)))
+        x = F.relu(self.bn4(self.tconv4(x)))
+        x = F.relu(self.bn5(self.tconv5(x)))
+        x = F.relu(self.bn6(self.conv1(x)))
+        x = F.relu(self.bn7(self.conv2(x)))
+        x = F.relu(self.bn8(self.conv3(x)))
+        x = F.relu(self.bn9(self.conv4(x)))
+        x = torch.tanh(self.conv5(x))
 
         return x
 
-def normal_init(m, mean, std):
-    if isinstance(m, nn.ConvTranspose2d) or isinstance(m, nn.Conv2d):
-        m.weight.data.normal_(mean, std)
-        m.bias.data.zero_()
+
+def weights_init(m):
+    classname = m.__class__.__name__
+    #if classname.find('Conv') != -1:
+    #    m.weight.data.normal_(0.0, 0.02)
+    if isinstance(m, nn.Conv2d):
+        m.weight.data.normal_(0.0, 0.02)
+    elif isinstance(m, nn.ConvTranspose2d):
+        m.weight.data.normal_(0.0, 0.02)
+    elif classname.find('BatchNorm') != -1:
+        m.weight.data.normal_(1.0, 0.02)
+        m.bias.data.fill_(0)
