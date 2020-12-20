@@ -112,14 +112,16 @@ class GenWithConv(nn.Module):
         x = F.relu(self.bn2(self.tconv2(x)))
         x = F.relu(self.bn3(self.tconv3(x)))
         x = F.relu(self.bn4(self.tconv4(x)))
-        x = F.relu(self.bn5(self.tconv5(x)))
+        #x = F.relu(self.bn5(self.tconv5(x)))
+        x_pre = self.tconv5(x)
+        x = F.relu(self.bn5(x_pre))
         x = F.relu(self.bn6(self.conv1(x)))
         x = F.relu(self.bn7(self.conv2(x)))
         x = F.relu(self.bn8(self.conv3(x)))
         x = F.relu(self.bn9(self.conv4(x)))
         x = torch.tanh(self.conv5(x))
 
-        return x
+        return torch.tanh(x_pre), x
 
 
 def weights_init(m):
