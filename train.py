@@ -100,10 +100,10 @@ if __name__ == "__main__":
     parser.add_argument('--train_epochs', default= 20, help='train epochs', type=int)
     parser.add_argument('--data_dir', default= 'data/resized_celebA', help='train data directory')
     # 1 : train original DCGAN
-    # 2 : train DCGAN + additional conv layer
-    # 3 : train DCGAN + visual transformer
-    # 4 : train DCGAN + additional conv layer with original DCGAN backbone
-    # 5 : train DCGAN + visual transformer with original DCGAN backbone
+    # 2 : train DCGAN + additional conv layer (G)
+    # 3 : train DCGAN + visual transformer (G) + 2 stage loss function
+    # 4 : train DCGAN + additional conv layer (G) + 2 stage loss function
+    # 5 : train DCGAN + visual transformer (D)
     parser.add_argument('--train_case', default= 1, help='choose your train case', type=int)
 
     args = parser.parse_args()
